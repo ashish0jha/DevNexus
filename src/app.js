@@ -24,13 +24,15 @@ const requestRouter = require('./routes/requests');
 const paymentRouter = require("./routes/payment");
 const chatRouter = require("./routes/chat")
 const initializeSocket = require('./utils/socket');
+const postRouter = require('./routes/post');
 
 app.use("/",authRouter);
 app.use("/",profileRouter);
 app.use("/",userRouter);
 app.use("/",requestRouter);
 app.use("/",paymentRouter);
-app.use("/",chatRouter)
+app.use("/",chatRouter);
+app.use("/",postRouter);
 
 const server = http.createServer(app);
 initializeSocket(server);
