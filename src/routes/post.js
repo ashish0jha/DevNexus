@@ -46,11 +46,19 @@ postRouter.get("/post/feed", userAuth, async (req, res) => {
         const posts = await Post.find({
             $nor: [{ userId: _id }]
         }).populate("userId", "firstName lastName photoUrl")
-            .populate('comments.userId', "firstName lastname photoUrl");
+            .populate('comments.userId', "firstName lastname photoUrl")
+            .sort(() => Math.random() - 0.5);
+
         if (!posts) {
             throw new Error("There is no posts left");
         };
-        res.json({ posts });
+
+        const postsWithLikeInfo = posts.map((post) => ({
+            ...post.toObject(),
+            likesCount: post.likes.length,
+            liked: post.likes.some((id) => id.equals(_id))
+        }))
+        res.json({ posts: postsWithLikeInfo });
     }
     catch (err) {
         res.status(400).json({ message: err.message })
@@ -115,22 +123,26 @@ postRouter.post("/post/comment/:postId", userAuth, async (req, res) => {
 postRouter.patch("/addLike/:postId", userAuth, async (req, res) => {
     try {
         const { postId } = req.params;
-        const post = await Post.findById({_id:postId});
-        post.likes = post.likes+1;
-        await post.save();
-        res.json({likes:post.likes})
-    }
-    catch (err) {
-        res.status(400).json({ message: err.message });
-    }
-})
-postRouter.patch("/removeLike/:postId", userAuth, async (req, res) => {
-    try {
-        const { postId } = req.params;
-        const post = await Post.findById({_id:postId});
-        post.likes = post.likes-1;
-        await post.save();
-        res.json({likes:post.likes})
+        let { _id } = req.user;
+        let post = await Post.findById({ _id: postId });
+        if (!post) {
+            throw new Error("Post does not exist");
+        }
+        const alreadyLiked = post.likes.includes(_id);
+        if (alreadyLiked) {
+            [_id, ...newLikeArr] = post.likes;
+            post.likes = newLikeArr;
+        } else {
+            post.likes.push(_id);
+        }
+
+        const savedPost = await post.save();
+        res.json({
+            data: {
+                likesCount: post.likes.length,
+                liked: !alreadyLiked
+            }
+        });
     }
     catch (err) {
         res.status(400).json({ message: err.message });

@@ -28,9 +28,7 @@ const postSchema = new mongoose.Schema({
         default:"https://cdn.phototourl.com/free/2026-07-03-e6eab32d-415c-4f16-9352-2858b9b316bb.png",
     },
     likes:{
-        type:Number,
-        default:0,
-        min:0,
+        type:[{type:mongoose.Schema.Types.ObjectId,ref:"User"}]
     },
     comments:{
         type:[commentSchema],
