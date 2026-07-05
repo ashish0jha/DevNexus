@@ -21,8 +21,8 @@ const isValidEditData = (req) => {
         "photoUrl",
         "about",
         "skills",
+        "location",
     ];
-
     const isValidFields = Object.keys(req.body).every((feild) =>
         ALLOWED_FIELDS.includes(feild),
     );

@@ -20,7 +20,7 @@ profileRouter.get("/profile/view", userAuth, async (req, res) => {
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
     try {
         (isValidEditData(req))
-
+        
         const newData = req.body;
         const user = req.user;
 
