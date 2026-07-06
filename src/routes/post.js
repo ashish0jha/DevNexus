@@ -45,9 +45,8 @@ postRouter.get("/post/feed", userAuth, async (req, res) => {
         const { _id } = req.user;
         const posts = await Post.find({
             $nor: [{ userId: _id }]
-        }).populate("userId", "firstName lastName photoUrl")
+        }).populate("userId")
             .populate('comments.userId', "firstName lastname photoUrl")
-            .sort(() => Math.random() - 0.5);
 
         if (!posts) {
             throw new Error("There is no posts left");
@@ -57,7 +56,7 @@ postRouter.get("/post/feed", userAuth, async (req, res) => {
             ...post.toObject(),
             likesCount: post.likes.length,
             liked: post.likes.some((id) => id.equals(_id))
-        }))
+        })).sort(() => Math.random() - 0.5);
         res.json({ posts: postsWithLikeInfo });
     }
     catch (err) {
@@ -65,11 +64,23 @@ postRouter.get("/post/feed", userAuth, async (req, res) => {
     }
 })
 
-postRouter.get("/post/user", userAuth, async (req, res) => {
+postRouter.get("/getpost/:_id", userAuth, async (req, res) => {
     try {
-        const { _id } = req.user;
-        const posts = await Post.find({ userId: _id });
-        res.json({ posts });
+        const { _id } = req.params;
+        const loggedInUserId = req.user._id;
+
+        const posts = await Post.find({ userId: _id })
+            .populate("userId")
+            .populate('comments.userId', "firstName lastname photoUrl");
+
+        const postsWithLikeInfo = posts.map((post) => {
+            return ({
+            ...post.toObject(),
+            likesCount: post.likes.length,
+            liked: post.likes.some((id) => id.equals(loggedInUserId))
+        })}).sort(() => Math.random() - 0.5);
+               
+        res.json({ posts: postsWithLikeInfo });
     }
     catch (err) {
         res.status(400).json({ message: err.message });
@@ -123,23 +134,22 @@ postRouter.post("/post/comment/:postId", userAuth, async (req, res) => {
 postRouter.patch("/addLike/:postId", userAuth, async (req, res) => {
     try {
         const { postId } = req.params;
-        let { _id } = req.user;
+        let userId = req.user._id;
         let post = await Post.findById({ _id: postId });
         if (!post) {
             throw new Error("Post does not exist");
         }
-        const alreadyLiked = post.likes.includes(_id);
+        const alreadyLiked = post.likes.some((id) => id.equals(userId));
         if (alreadyLiked) {
-            [_id, ...newLikeArr] = post.likes;
-            post.likes = newLikeArr;
+            post.likes = post.likes.filter((id) => !id.equals(userId));
         } else {
-            post.likes.push(_id);
+            post.likes.push(userId);
         }
 
         const savedPost = await post.save();
         res.json({
             data: {
-                likesCount: post.likes.length,
+                likesCount: savedPost.likes.length,
                 liked: !alreadyLiked
             }
         });

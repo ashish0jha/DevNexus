@@ -41,7 +41,7 @@ authRouter.post("/login",async(req, res)=>{
         
         const { emailId, password } = req.body;
         
-        const user = await UserModel.findOne({ emailId : emailId });
+        const user = await UserModel.findOne({ emailId : emailId }).select("+password");
 
         if(!user){
             throw new Error(" Invalid credentials ")

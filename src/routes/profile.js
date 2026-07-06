@@ -8,6 +8,7 @@ const upload = require("../middlewares/upload");
 const cloudinary = require("../utils/cloudinary");
 const streamifier = require("streamifier");
 
+const SAFE_USER_DATA = "firstName lastName age gender photoUrl skills about location";
 
 profileRouter.get("/profile/view", userAuth, async (req, res) => {
     try {
@@ -45,8 +46,7 @@ profileRouter.patch("/profile/edit", userAuth, upload.single("image"), async (re
         Object.keys(newData).forEach((key) => (user[key] = newData[key]));
 
         await user.save();
-
-        res.json({message:"Edited Successfully"})
+        res.json(user)
 
     }
     catch (err) {

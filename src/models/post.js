@@ -25,7 +25,7 @@ const postSchema = new mongoose.Schema({
     },
     imageUrl:{
         type:String,
-        default:"https://cdn.phototourl.com/free/2026-07-03-e6eab32d-415c-4f16-9352-2858b9b316bb.png",
+        default:"https://res.cloudinary.com/ysglxchz/image/upload/v1783314664/devTinder_Posts/bknnb3rjzl5z1mxo3b4c.png",
     },
     likes:{
         type:[{type:mongoose.Schema.Types.ObjectId,ref:"User"}]
