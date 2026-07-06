@@ -3,42 +3,42 @@ const requestRouter = express.Router();
 
 const { userAuth } = require("../middlewares/Auth")
 const conncetionRequestSchema = require("../models/connectionRequest")
-const {UserModel} = require("../models/User")
+const { UserModel } = require("../models/User")
 
 const SAFE_USER_DATA = "firstName lastName age gender photoUrl skills about";
 
-requestRouter.post("/request/send/:status/:receiverId", userAuth ,async(req,res)=>{
-    try{
-        const senderId=req.user._id;
+requestRouter.post("/request/send/:status/:receiverId", userAuth, async (req, res) => {
+    try {
+        const senderId = req.user._id;
         const receiverId = req.params.receiverId;
         const status = req.params.status;
 
-        const ALLOWED_STATUS = ["Interested","Ignored"];
-        if(!ALLOWED_STATUS.includes(status)){
+        const ALLOWED_STATUS = ["Interested", "Ignored"];
+        if (!ALLOWED_STATUS.includes(status)) {
             throw new Error("Invalid status of request");
         }
 
         const receiver = await UserModel.findById(receiverId);
 
-        if(!receiver){
+        if (!receiver) {
             res.status(404).send("User not found");
         }
-        
-        if(req.user._id.equals(receiver._id)){
+
+        if (req.user._id.equals(receiver._id)) {
             throw new Error("User Can't request to itsellf");
         }
 
         const isCrossConnection = await conncetionRequestSchema.findOne({
-            $or:[
-                {senderId,receiverId},
-                {senderId : receiverId, receiverId:senderId}
+            $or: [
+                { senderId, receiverId },
+                { senderId: receiverId, receiverId: senderId }
             ]
         })
-        if(isCrossConnection){
+        if (isCrossConnection) {
             throw new Error("Request already Exist");
         }
 
-        const newRequest =await new conncetionRequestSchema({
+        const newRequest = await new conncetionRequestSchema({
             senderId,
             receiverId,
             status,
@@ -48,55 +48,78 @@ requestRouter.post("/request/send/:status/:receiverId", userAuth ,async(req,res)
 
         res.send(`${req.user.firstName} sends request to ${receiver.firstName}`)
 
-    }catch(err){
-        res.status(400).send("Error : "+ err.message)
-    }
-})
-
-requestRouter.post("/request/review/:status/:requestId",userAuth,async (req,res)=>{
-    try{
-        const loggedUser = req.user;
-        const {status , requestId} = req.params;
-
-        const allowedStatus = ["Accepted","Rejected"];
-        if(!allowedStatus.includes(status)){
-            return res.status(400).json({
-                message:"Invalid request Status"
-            })
-        }
-
-        const request = await conncetionRequestSchema.findOne({
-            _id:requestId,
-            receiverId:loggedUser._id,
-            status:"Interested",
-        }).populate("senderId",SAFE_USER_DATA);
-        if(!request){
-            return res.status(404).json({
-                message:"Request not found",
-            })
-        }
-        
-        request.status = status;
-        await request.save();
-
-        res.json({
-            message:`${loggedUser.firstName} ${status} requests of ${(await UserModel.findById(request.senderId)).firstName}`,
-            data:request,
-        })
-    }
-    catch(err) {
+    } catch (err) {
         res.status(400).send("Error : " + err.message)
     }
 })
 
-requestRouter.delete("/request/cancel/:_id",userAuth,async (req,res)=>{
-    try{
-        await conncetionRequestSchema.findOneAndDelete({senderId:req.user._id,receiverId:req.params._id});
+requestRouter.post("/request/review/:status/:requestId", userAuth, async (req, res) => {
+    try {
+        const loggedUser = req.user;
+        const { status, requestId } = req.params;
+
+        const allowedStatus = ["Accepted", "Rejected"];
+        if (!allowedStatus.includes(status)) {
+            return res.status(400).json({
+                message: "Invalid request Status"
+            })
+        }
+
+        const request = await conncetionRequestSchema.findOne({
+            _id: requestId,
+            receiverId: loggedUser._id,
+            status: "Interested",
+        }).populate("senderId", SAFE_USER_DATA);
+        if (!request) {
+            return res.status(404).json({
+                message: "Request not found",
+            })
+        }
+
+        request.status = status;
+        await request.save();
+
+        res.json({
+            message: `${loggedUser.firstName} ${status} requests of ${(await UserModel.findById(request.senderId)).firstName}`,
+            data: request,
+        })
+    }
+    catch (err) {
+        res.status(400).send("Error : " + err.message)
+    }
+})
+
+requestRouter.delete("/request/cancel/:_id", userAuth, async (req, res) => {
+    try {
+        await conncetionRequestSchema.findOneAndDelete({ senderId: req.user._id, receiverId: req.params._id });
         res.send("Request Deleted Successfully");
 
     }
-    catch(err){
-        res.status(400).removeListener.send("ERROR : "+ err.message);
+    catch (err) {
+        res.status(400).removeListener.send("ERROR : " + err.message);
+    }
+})
+
+requestRouter.get("/requestCheck/:userId", userAuth, async (req, res) => {
+    try {
+        const { _id } = req.user;
+        const { userId } = req.params;
+        
+        const isRequestExist = await conncetionRequestSchema.findOne({
+            $or: [
+                { senderId:_id, receiverId:userId },
+                { senderId: userId, receiverId: _id }
+            ]
+        })
+        if(!isRequestExist){
+            throw new Error("No Connection")
+        }
+        res.json({status:isRequestExist.status,
+            senderId:isRequestExist.senderId
+        });
+    }
+    catch (err) {
+        res.status(400).json({ message: err.message })
     }
 })
 
