@@ -4,6 +4,7 @@ const userRouter = express.Router();
 const { UserModel } = require("../models/User");
 const ConnectionRequestSchema = require("../models/connectionRequest");
 const { userAuth } = require("../middlewares/Auth");
+const { default: mongoose } = require("mongoose");
 
 const SAFE_USER_DATA = "firstName lastName age gender photoUrl skills about location";
 
@@ -85,32 +86,34 @@ userRouter.get("/user/feed", userAuth, async (req, res) => {
             hideUsersFromFeed.add(val.senderId.toString());
             hideUsersFromFeed.add(val.receiverId.toString());
         });
+        const hideUsersArray = Array.from(hideUsersFromFeed).map(
+            id => new mongoose.Types.ObjectId(id)
+        );
         const users = await UserModel.aggregate([
-        {
-            $match: {
-            $and: [
-                { _id: { $nin: Array.from(hideUsersFromFeed) } },
-                { _id: { $ne: loggedInUser._id } }
-            ]
+            {
+                $match: {
+                    $and: [
+                        { _id: { $nin: Array.from(hideUsersArray) } },
+                        { _id: { $ne: loggedInUser._id } }
+                    ]
+                }
+            },
+            { $sample: { size: limit } },
+            {
+                $project: {
+                    firstName: 1,
+                    lastName: 1,
+                    photoUrl: 1,
+                    about: 1,
+                    skills: 1,
+                    age: 1,
+                    gender: 1,
+                    location: 1,
+                }
             }
-        },
-        { $sample: { size: limit } },
-        {
-            $project: {
-                firstName: 1,
-                lastName: 1,
-                photoUrl: 1,
-                about: 1,
-                skills: 1,
-                age: 1,
-                gender: 1,
-                location:1,
-            }
-        }
         ]);
-        users.sort(() => Math.random() - 0.5);
-        res.send(users)
 
+        res.send(users)
     } catch (err) {
         res.status(400).send("Something is wrong : " + err.message);
     }
@@ -145,5 +148,26 @@ userRouter.delete("/user", userAuth, async (req, res) => {
         res.status(400).send("Something is Wrong");
     }
 });
+
+userRouter.post("/search", userAuth, async (req, res) => {
+    try {
+        const { text } = req.body;
+        text.trim();
+
+        const users = await UserModel.find({
+            $or: [
+                { firstName: { $regex: text, $options: "i" } },
+                { lastName: { $regex: text, $options: "i" } },
+                { skills: { $regex: text, $options: "i" } }
+            ]
+        })
+        .select("firstName lastName photoUrl about skills age gender location")
+        .limit(10);
+        res.send(users)
+    }
+    catch (err) {
+        res.status(400).json({ message: err.message })
+    }
+})
 
 module.exports = userRouter;
