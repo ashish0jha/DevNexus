@@ -1,23 +1,25 @@
-# DevTinder API
+# DevNexus API
 
-Backend for DevTinder — a platform where developers scroll, match, and connect with each other instead of scrolling through another job board.
+Backend for DevNexus — a platform where developers discover, connect, and network with each other. Under the hood it's handling JWT auth, a Razorpay-powered premium flow, real-time chat over Socket.io, a social posts layer, and Cloudinary-backed photo uploads. Deployed on an AWS EC2 instance.
 
 **Live:** http://13.236.147.238/
-**Frontend repo:** https://github.com/ashish0jha/DevTinder-FrontEnd
+
+**Frontend repo:** https://github.com/ashish0jha/DevNexus-FrontEnd
 
 ## What it does
 
-Handles everything on the server side — signup/login, the feed that suggests other devs, sending and responding to connection requests, real-time chat once two people match, a social posts layer (create posts, like, comment), and a premium membership flow with Razorpay.
+Handles everything on the server side — signup/login, a randomized feed of developers, sending and responding to connection requests, real-time chat once two people connect, a social posts layer (create posts, like, comment), developer search by name and skills, and a premium membership flow with Razorpay.
 
 ## Stack
 
-- Node.js + Express 5
+- Node.js + Express 
 - MongoDB + Mongoose
-- JWT auth, cookies (httpOnly), bcrypt for password hashing
+- JWT auth, cookies (httpOnly)
+- bcrypt for password hashing
 - Socket.io for live chat
 - Razorpay for payments
-- validator for input checks
 - Cloudinary for photo/post image storage (multer → buffer → stream → Cloudinary, only URL stored in MongoDB)
+- validator for input checks
 
 ## Routes
 
@@ -32,9 +34,10 @@ Handles everything on the server side — signup/login, the feed that suggests o
 - `POST /profile/password`
 
 **User**
+- `GET /user/feed` — randomized feed, excludes people already swiped on
+- `POST /search` — search developers by name or skills
 - `GET /user/requests/:state` — state: sent / received
 - `GET /user/connections`
-- `GET /user/feed`
 - `DELETE /user/remove/:id`
 - `DELETE /user`
 
@@ -42,13 +45,13 @@ Handles everything on the server side — signup/login, the feed that suggests o
 - `POST /request/send/:status/:receiverId` — status: Interested / Ignored
 - `POST /request/review/:status/:requestId` — status: Accepted / Rejected
 - `DELETE /request/cancel/:_id`
+- `GET /requestCheck/:userId`
 
 **Posts**
 - `POST /post/create` — create a post (text + optional image via Cloudinary)
 - `GET /post/feed` — paginated posts feed
-- `GET /post/veiw/user`
+- `GET /post/view/user` — posts by the logged-in user
 - `PATCH /addLike/:postId`
-- `PATCH /removeLike/:postId`
 - `POST /post/comment/:postId`
 - `GET /getcomments/:postId`
 
@@ -90,15 +93,12 @@ src/
 │   └── validate.js
 └── app.js
 ```
-│   └── validate.js
-└── app.js
-```
 
 ## Running it locally
 
 ```bash
-git clone https://github.com/ashish0jha/DevTinder.git
-cd DevTinder
+git clone https://github.com/ashish0jha/DevNexus.git
+cd DevNexus
 npm install
 ```
 
@@ -110,6 +110,9 @@ DB_CONNECTION_SECRET=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 RAZORPAY_KEY_ID=your_razorpay_key
 RAZORPAY_KEY_SECRET=your_razorpay_secret
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 ```bash
@@ -124,22 +127,26 @@ Running on an AWS EC2 instance — Nginx reverse-proxies incoming traffic to the
 
 ```bash
 npm i pm2 -g
-pm2 start npm --name "devtinder-backend" -- start
+pm2 start npm --name "devnexus" -- start
 pm2 save
 ```
 
-Useful PM2 commands while debugging on the server: `pm2 logs`, `pm2 list`, `pm2 restart devtinder-backend`.
+Useful PM2 commands while on the server: `pm2 logs`, `pm2 list`, `pm2 restart devnexus-backend`.
 
 ## Notes
 
 - Passwords are never stored in plain text — bcrypt with salting.
 - Auth is cookie-based JWT, checked via middleware on protected routes.
-- File uploads handled by a dedicated `upload.js` middleware (multer → memory storage → streamed to Cloudinary; only the returned URL is stored in MongoDB).
+- File uploads handled by `upload.js` middleware (multer → memory storage → streamed to Cloudinary; only the returned URL is stored in MongoDB).
 - Self-requests and duplicate connection requests are blocked at the schema level.
 - Socket connections are authenticated before a chat room is joined — no anonymous access to someone else's chat.
+- Feed uses MongoDB `$aggregate` with `$sample` for randomization and `$match` with ObjectId filtering to exclude already-swiped users.
+- Search uses `$regex` with `$options: "i"` across firstName, lastName, and skills fields.
 
 ## What's next
 
-- Push notifications for new matches/messages
-- Better feed ranking (right now it's mostly exclusion-based — filtering out people already swiped on)
-- Tests — there aren't any yet, and that's the next thing on the list
+- In-app and push notifications for matches, messages, and requests
+- Smarter feed ranking by shared skills and interests instead of pure exclusion-based filtering
+- Search filters (experience level, tech stack, location)
+- Voice/video calling for matched connections
+- Tests — none yet, that's next
